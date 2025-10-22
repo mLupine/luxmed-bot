@@ -235,4 +235,32 @@ trait Lang {
   def pleaseChooseAccount(currentAccountName: String): String
 
   def accountSwitched(username: String): String
+
+  def blacklistManagementHeader: String
+
+  def noBlacklistedDoctors: String
+
+  def blacklistEntry(doctorName: String, index: Int): String
+
+  def addDoctorToBlacklist: String
+
+  def removeDoctorFromBlacklist: String
+
+  def doctorAddedToBlacklist(doctorName: String): String
+
+  def doctorRemovedFromBlacklist(doctorName: String): String
+
+  def doctorAlreadyBlacklisted(doctorName: String): String
+
+  def blacklistFilterInManualSearch: String
+
+  def blacklistFilterEnabled: String
+
+  def blacklistFilterDisabled: String
+
+  def blacklistedMarker: String
+
+  def pleaseSelectDoctorForBlacklist: String
+
+  def backToBlacklist: String
 }

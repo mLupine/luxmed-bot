@@ -80,16 +80,24 @@ class MonitoringService extends StrictLogging {
     )
     termsEither match {
       case Right(terms) =>
-        if (terms.nonEmpty) {
-          logger.debug(s"Found ${terms.length} terms by monitoring [#${monitoring.recordId}]")
+        // Filter out blacklisted doctors from automated monitoring results
+        val blacklistedDoctorIds = dataService.getBlacklistedDoctorIds(monitoring.userId, monitoring.accountId)
+        val filteredTerms = terms.filterNot(term => blacklistedDoctorIds.contains(term.term.doctor.id))
+
+        if (filteredTerms.nonEmpty) {
+          logger.debug(s"Found ${filteredTerms.length} terms (after blacklist filtering) by monitoring [#${monitoring.recordId}]")
           if (monitoring.autobook) {
-            val term = terms.head
+            val term = filteredTerms.head
             bookAppointment(term, monitoring, monitoring.rebookIfExists)
           } else {
-            notifyUserAboutTerms(terms, monitoring)
+            notifyUserAboutTerms(filteredTerms, monitoring)
           }
         } else {
-          logger.debug(s"No new terms found for monitoring [#${monitoring.recordId}]")
+          if (terms.nonEmpty && filteredTerms.isEmpty) {
+            logger.debug(s"Found ${terms.length} terms but all were blacklisted for monitoring [#${monitoring.recordId}]")
+          } else {
+            logger.debug(s"No new terms found for monitoring [#${monitoring.recordId}]")
+          }
         }
       case Left(ex: InvalidLoginOrPasswordException) =>
         logger.error(s"User entered invalid name or password. Monitoring will be disabled", ex)

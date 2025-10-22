@@ -183,6 +183,7 @@ object Ua extends Lang {
        |/monitorings_history - історія моніторингів
        |/reserved - зарезеровані візити
        |/history - історія візитів
+       |/blacklist - керування чорним списком лікарів
        |/accounts - управління акаунтами Luxmed
        |/login - залогінитися знову
        |/settings - налаштування
@@ -385,4 +386,47 @@ object Ua extends Lang {
 
   override def pleaseChoosePayer: String =
     "<b>➡</b> Не можу визначити платника за замовчуванням. Будь ласка, виберіть платника"
+
+  override def blacklistManagementHeader: String =
+    """<b>➡</b> Керування чорним списком лікарів
+      |
+      |Тут ви можете керувати списком лікарів, яких ви хочете виключити з автоматичних бронювань та повідомлень.""".stripMargin
+
+  override def noBlacklistedDoctors: String =
+    "ℹ Ваш чорний список лікарів порожній. Додайте лікарів, щоб виключити їх з автоматичних бронювань."
+
+  override def blacklistEntry(doctorName: String, index: Int): String =
+    s"""🚫 <b>$doctorName</b>
+       |<b>➡</b> /remove_$index
+       |
+       |""".stripMargin
+
+  override def addDoctorToBlacklist: String = "➕ Додати лікаря до чорного списку"
+
+  override def removeDoctorFromBlacklist: String = "➖ Видалити лікаря з чорного списку"
+
+  override def doctorAddedToBlacklist(doctorName: String): String =
+    s"✅ Лікаря <b>$doctorName</b> додано до вашого чорного списку"
+
+  override def doctorRemovedFromBlacklist(doctorName: String): String =
+    s"✅ Лікаря <b>$doctorName</b> видалено з вашого чорного списку"
+
+  override def doctorAlreadyBlacklisted(doctorName: String): String =
+    s"⚠ Лікар <b>$doctorName</b> вже є у вашому чорному списку"
+
+  override def blacklistFilterInManualSearch: String =
+    "🔍 Фільтрувати лікарів з чорного списку в результатах пошуку"
+
+  override def blacklistFilterEnabled: String =
+    "✅ Лікарі з чорного списку будуть приховані в результатах пошуку"
+
+  override def blacklistFilterDisabled: String =
+    "Лікарі з чорного списку будуть позначені, але видимі в результатах пошуку"
+
+  override def blacklistedMarker: String = "(у чорному списку)"
+
+  override def pleaseSelectDoctorForBlacklist: String =
+    "<b>➡</b> Будь ласка, виберіть лікаря, якого ви хочете додати до чорного списку"
+
+  override def backToBlacklist: String = "◀ Назад до чорного списку"
 }
