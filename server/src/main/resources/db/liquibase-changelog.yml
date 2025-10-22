@@ -20,3 +20,9 @@ databaseChangeLog:
 - include:
       file: changelog/06-add-username-to-monitoring.yml
       relativeToChangelogFile: true
+- include:
+      file: changelog/07-create-doctor-blacklist-table.yml
+      relativeToChangelogFile: true
+- include:
+      file: changelog/08-add-blacklist-filter-to-settings.yml
+      relativeToChangelogFile: true

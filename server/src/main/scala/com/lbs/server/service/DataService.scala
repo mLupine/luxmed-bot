@@ -183,4 +183,28 @@ class DataService {
     )
     doctorMaybe.foreach(dataRepository.saveEntity)
   }
+
+  def getBlacklistedDoctors(userId: Long, accountId: Long): Seq[DoctorBlacklist] = {
+    dataRepository.getBlacklistedDoctors(userId, accountId)
+  }
+
+  def getBlacklistedDoctorIds(userId: Long, accountId: Long): Set[Long] = {
+    dataRepository.getBlacklistedDoctorIds(userId, accountId)
+  }
+
+  def isDoctorBlacklisted(userId: Long, accountId: Long, doctorId: Long): Boolean = {
+    dataRepository.isDoctorBlacklisted(userId, accountId, doctorId)
+  }
+
+  @Transactional
+  def addDoctorToBlacklist(userId: Long, accountId: Long, doctorId: Long, doctorName: String): DoctorBlacklist = {
+    dataRepository.saveEntity(DoctorBlacklist(userId, accountId, doctorId, doctorName))
+  }
+
+  @Transactional
+  def removeDoctorFromBlacklist(userId: Long, accountId: Long, doctorId: Long): Unit = {
+    dataRepository.findBlacklistEntry(userId, accountId, doctorId).foreach { entry =>
+      dataRepository.deleteBlacklistEntry(entry)
+    }
+  }
 }

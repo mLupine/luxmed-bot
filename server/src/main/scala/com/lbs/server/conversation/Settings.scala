@@ -24,13 +24,22 @@ class Settings(val userId: UserId, bot: Bot, dataService: DataService, val local
         userId.source,
         lang.settingsHeader,
         inlineKeyboard =
-          createInlineKeyboard(Seq(Button(lang.language, Tags.Language), Button(lang.offset, Tags.Offset)), columns = 1)
+          createInlineKeyboard(
+            Seq(
+              Button(lang.language, Tags.Language),
+              Button(lang.offset, Tags.Offset),
+              Button(lang.blacklistFilterInManualSearch, Tags.BlacklistFilter)
+            ),
+            columns = 1
+          )
       )
     } onReply {
       case Msg(Command(_, _, Some(Tags.Language)), _) =>
         goto(askLanguage)
       case Msg(Command(_, _, Some(Tags.Offset)), _) =>
         goto(showOffsetOptions)
+      case Msg(Command(_, _, Some(Tags.BlacklistFilter)), _) =>
+        goto(toggleBlacklistFilter)
     }
 
   def askLanguage: Step =
@@ -94,10 +103,29 @@ class Settings(val userId: UserId, bot: Bot, dataService: DataService, val local
     }
   }
 
+  def toggleBlacklistFilter: Step = {
+    ask { _ =>
+      val settings = getSettings
+      settings.filterBlacklistedDoctorsInManualSearch = !settings.filterBlacklistedDoctorsInManualSearch
+      dataService.saveSettings(settings)
+
+      val message = if (settings.filterBlacklistedDoctorsInManualSearch) {
+        lang.blacklistFilterEnabled
+      } else {
+        lang.blacklistFilterDisabled
+      }
+
+      bot.sendMessage(userId.source, message)
+      end()
+    } onReply {
+      case _ => stay() // This step auto-transitions
+    }
+  }
+
   private def getSettings = {
     dataService
       .findSettings(userId.userId)
-      .getOrElse(model.Settings(userId.userId, lang.id, 0, alwaysAskOffset = false))
+      .getOrElse(model.Settings(userId.userId, lang.id, 0, alwaysAskOffset = false, filterBlacklistedDoctorsInManualSearch = false))
   }
 }
 
@@ -108,6 +136,7 @@ object Settings {
     val Offset = "offset"
     val ToggleAskOffsetOnOff = "always_ask_offset"
     val ChangeDefaultOffset = "change_default_offset"
+    val BlacklistFilter = "blacklist_filter"
   }
 
 }

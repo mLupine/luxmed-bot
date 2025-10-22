@@ -22,7 +22,8 @@ class Chat(
   historyFactory: UserIdTo[HistoryViewer],
   visitsFactory: UserIdTo[ReservedVisitsViewer],
   settingsFactory: UserIdTo[Settings],
-  accountFactory: UserIdTo[Account]
+  accountFactory: UserIdTo[Account],
+  blacklistFactory: UserIdTo[BlacklistManagement]
 )(val actorSystem: ActorSystem)
     extends Conversation[Unit]
     with StrictLogging {
@@ -35,6 +36,7 @@ class Chat(
   private val visits = visitsFactory(userId)
   private val settings = settingsFactory(userId)
   private val account = accountFactory(userId)
+  private val blacklist = blacklistFactory(userId)
 
   entryPoint(helpChat)
 
@@ -90,6 +92,12 @@ class Chat(
       stay()
     }
 
+  private def blacklistChat: Step =
+    dialogue(blacklist) { case Msg(TextCommand("/blacklist"), _) =>
+      blacklist.restart()
+      stay()
+    }
+
   private def dialogue(interactional: Interactional)(mainMessageProcessor: MessageProcessorFn): Step =
     monologue { case event: Msg =>
       if (mainMessageProcessor.isDefinedAt(event)) mainMessageProcessor(event)
@@ -127,6 +135,9 @@ class Chat(
     case Msg(cmd @ TextCommand("/accounts"), _) =>
       self ! cmd
       goto(accountChat)
+    case Msg(cmd @ TextCommand("/blacklist"), _) =>
+      self ! cmd
+      goto(blacklistChat)
     case Msg(TextCommand(ReserveTerm(monitoringIdStr, scheduleIdStr, timeStr)), _) =>
       val monitoringId = monitoringIdStr.toLong
       val scheduleId = scheduleIdStr.toLong
@@ -147,6 +158,7 @@ class Chat(
     visits.destroy()
     settings.destroy()
     account.destroy()
+    blacklist.destroy()
   }
 }
 
