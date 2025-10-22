@@ -1,0 +1,24 @@
+databaseChangeLog:
+- changeSet:
+    id: 10
+    author: claude
+    preConditions:
+      onFail: MARK_RAN
+      not:
+        columnExists:
+          tableName: settings
+          columnName: filter_blacklisted_doctors_in_manual_search
+    changes:
+    - addColumn:
+        tableName: settings
+        columns:
+        - column:
+            name: filter_blacklisted_doctors_in_manual_search
+            type: boolean
+            defaultValue: false
+
+    - addNotNullConstraint:
+        tableName: settings
+        columnName: filter_blacklisted_doctors_in_manual_search
+        columnDataType: boolean
+        defaultNullValue: false

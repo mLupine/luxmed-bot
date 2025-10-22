@@ -22,7 +22,12 @@ class BookSpec extends AkkaTestKit {
 
   private def makeBot               = mock(classOf[Bot])
   private def makeApiService        = mock(classOf[ApiService])
-  private def makeDataService       = mock(classOf[DataService])
+  private def makeDataService = {
+    val dataService = mock(classOf[DataService])
+    when(dataService.findSettings(anyLong())).thenReturn(None)
+    when(dataService.getBlacklistedDoctorIds(anyLong(), anyLong())).thenReturn(Set.empty[Long])
+    dataService
+  }
   private def makeMonitoringService = mock(classOf[MonitoringService])
 
   private def makeLocalization: Localization = {

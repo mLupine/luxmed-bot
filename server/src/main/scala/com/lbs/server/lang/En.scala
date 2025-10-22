@@ -185,6 +185,7 @@ object En extends Lang {
        |/monitorings_history - previous monitoring
        |/reserved - upcoming visits
        |/history - visits history
+       |/blacklist - manage doctor blacklist
        |/accounts - manage Luxmed accounts
        |/login - login again
        |/settings - settings, e.g. lang
@@ -438,4 +439,47 @@ object En extends Lang {
   override def choosePhysiotherapist: String = "🧑‍⚕️ Choose a physiotherapist or skip to find any available:"
 
   override def anyPhysiotherapist: String = "Any physiotherapist"
+
+  override def blacklistManagementHeader: String =
+    """<b>➡</b> Doctor Blacklist Management
+      |
+      |Here you can manage the list of doctors you want to exclude from automated bookings and notifications.""".stripMargin
+
+  override def noBlacklistedDoctors: String =
+    "ℹ Your doctor blacklist is empty. Add doctors to exclude them from automated bookings."
+
+  override def blacklistEntry(doctorName: String, index: Int): String =
+    s"""🚫 <b>$doctorName</b>
+       |<b>➡</b> /remove_$index
+       |
+       |""".stripMargin
+
+  override def addDoctorToBlacklist: String = "➕ Add doctor to blacklist"
+
+  override def removeDoctorFromBlacklist: String = "➖ Remove doctor from blacklist"
+
+  override def doctorAddedToBlacklist(doctorName: String): String =
+    s"✅ Doctor <b>$doctorName</b> has been added to your blacklist"
+
+  override def doctorRemovedFromBlacklist(doctorName: String): String =
+    s"✅ Doctor <b>$doctorName</b> has been removed from your blacklist"
+
+  override def doctorAlreadyBlacklisted(doctorName: String): String =
+    s"⚠ Doctor <b>$doctorName</b> is already in your blacklist"
+
+  override def blacklistFilterInManualSearch: String =
+    "🔍 Filter blacklisted doctors in manual search results"
+
+  override def blacklistFilterEnabled: String =
+    "✅ Blacklisted doctors will be hidden from manual search results"
+
+  override def blacklistFilterDisabled: String =
+    "Blacklisted doctors will be marked but visible in manual search results"
+
+  override def blacklistedMarker: String = "(blacklisted)"
+
+  override def pleaseSelectDoctorForBlacklist: String =
+    "<b>➡</b> Please select a doctor to add to blacklist"
+
+  override def backToBlacklist: String = "◀ Back to blacklist"
 }
