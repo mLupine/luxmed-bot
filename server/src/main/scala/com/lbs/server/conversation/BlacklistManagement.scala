@@ -60,8 +60,9 @@ class BlacklistManagement(
     } onReply {
       case Msg(Command(_, _, Some(Tags.AddDoctor)), _) =>
         goto(askCityForAdd)
-      case Msg(TextCommand(removePattern(index)), _) =>
+      case Msg(TextCommand(removePattern(indexStr)), _) =>
         val blacklistedDoctors = dataService.getBlacklistedDoctors(userId.userId, userId.accountId)
+        val index = indexStr.toInt
         if (index >= 0 && index < blacklistedDoctors.size) {
           val doctor = blacklistedDoctors(index)
           dataService.removeDoctorFromBlacklist(userId.userId, userId.accountId, doctor.doctorId)
