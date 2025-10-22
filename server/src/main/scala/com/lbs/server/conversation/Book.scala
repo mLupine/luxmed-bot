@@ -71,6 +71,10 @@ class Book(
 
   private def askDoctor: Step =
     staticData(doctorConfig) { bd: BookingData =>
+      val settings = dataService.findSettings(userId.userId)
+      val filterBlacklisted = settings.exists(_.filterBlacklistedDoctorsInManualSearch)
+      val blacklistedDoctorIds = dataService.getBlacklistedDoctorIds(userId.userId, userId.accountId)
+
       withFunctions[IdName](
         latestOptions = dataService.getLatestDoctorsByCityIdAndClinicIdAndServiceId(
           userId.accountId,
@@ -85,7 +89,15 @@ class Book(
                 val clinicId = bd.clinicId.optionalId
                 clinicId.isEmpty || doc.facilityGroupIds.exists(_.contains(clinicId.get))
               })
-              .map(_.toIdName)
+              .filter(doc => !filterBlacklisted || !blacklistedDoctorIds.contains(doc.id))
+              .map(doc => {
+                val idName = doc.toIdName
+                if (blacklistedDoctorIds.contains(doc.id)) {
+                  IdName(idName.id, s"${idName.name} ${lang.blacklistedMarker}")
+                } else {
+                  idName
+                }
+              })
           ),
         applyId = id => bd.copy(doctorId = id.toIdName)
       )

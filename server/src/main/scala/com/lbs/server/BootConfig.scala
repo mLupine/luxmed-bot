@@ -119,6 +119,10 @@ class BootConfig {
     userId => new Account(userId, bot, dataService, localization, router)(actorSystem)
 
   @Bean
+  def blacklistFactory: UserIdTo[BlacklistManagement] =
+    userId => new BlacklistManagement(userId, bot, apiService, dataService, localization, staticDataFactory)(actorSystem)
+
+  @Bean
   def chatFactory: UserIdTo[Chat] =
     userId =>
       new Chat(
@@ -132,7 +136,8 @@ class BootConfig {
         historyFactory,
         reservedVisitsFactory,
         settingsFactory,
-        accountFactory
+        accountFactory,
+        blacklistFactory
       )(actorSystem)
 
   @Bean

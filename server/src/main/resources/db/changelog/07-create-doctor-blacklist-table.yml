@@ -1,0 +1,44 @@
+databaseChangeLog:
+- changeSet:
+    id: 07-1
+    author: claude
+    preConditions:
+      onFail: MARK_RAN
+      not:
+        tableExists:
+          tableName: doctor_blacklist
+    changes:
+    - createTable:
+        columns:
+        - column:
+            autoIncrement: true
+            constraints:
+              primaryKey: true
+              primaryKeyName: doctor_blacklist_pkey
+            name: record_id
+            type: BIGSERIAL
+        - column:
+            constraints:
+              nullable: false
+            name: user_id
+            type: BIGINT
+        - column:
+            constraints:
+              nullable: false
+            name: account_id
+            type: BIGINT
+        - column:
+            constraints:
+              nullable: false
+            name: doctor_id
+            type: BIGINT
+        - column:
+            constraints:
+              nullable: false
+            name: doctor_name
+            type: VARCHAR(255)
+        tableName: doctor_blacklist
+    - addUniqueConstraint:
+        columnNames: user_id, account_id, doctor_id
+        constraintName: doctor_blacklist_unique
+        tableName: doctor_blacklist

@@ -1,6 +1,6 @@
 package com.lbs.server.repository
 
-import com.lbs.server.repository.model.{CityHistory, ClinicHistory, Credentials, DoctorHistory, JLong, Monitoring, ServiceHistory, Settings, Source, SystemUser}
+import com.lbs.server.repository.model.{CityHistory, ClinicHistory, Credentials, DoctorBlacklist, DoctorHistory, JLong, Monitoring, ServiceHistory, Settings, Source, SystemUser}
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
 
@@ -291,5 +291,61 @@ class DataRepository(@Autowired em: EntityManager) {
 
   def saveEntity[T](entity: T): T = {
     em.merge(entity)
+  }
+
+  def getBlacklistedDoctors(userId: Long, accountId: Long): Seq[DoctorBlacklist] = {
+    em.createQuery(
+      """select blacklist from DoctorBlacklist blacklist where blacklist.userId = :userId
+        | and blacklist.accountId = :accountId order by blacklist.doctorName asc""".stripMargin,
+      classOf[DoctorBlacklist]
+    ).setParameter("userId", userId)
+      .setParameter("accountId", accountId)
+      .getResultList
+      .asScala
+      .toSeq
+  }
+
+  def getBlacklistedDoctorIds(userId: Long, accountId: Long): Set[Long] = {
+    em.createQuery(
+      """select blacklist.doctorId from DoctorBlacklist blacklist where blacklist.userId = :userId
+        | and blacklist.accountId = :accountId""".stripMargin,
+      classOf[JLong]
+    ).setParameter("userId", userId)
+      .setParameter("accountId", accountId)
+      .getResultList
+      .asScala
+      .map(_.toLong)
+      .toSet
+  }
+
+  def isDoctorBlacklisted(userId: Long, accountId: Long, doctorId: Long): Boolean = {
+    em.createQuery(
+      """select count(blacklist) from DoctorBlacklist blacklist where blacklist.userId = :userId
+        | and blacklist.accountId = :accountId and blacklist.doctorId = :doctorId""".stripMargin,
+      classOf[JLong]
+    ).setParameter("userId", userId)
+      .setParameter("accountId", accountId)
+      .setParameter("doctorId", doctorId)
+      .getSingleResult > 0
+  }
+
+  def findBlacklistEntry(userId: Long, accountId: Long, doctorId: Long): Option[DoctorBlacklist] = {
+    em.createQuery(
+      """select blacklist from DoctorBlacklist blacklist where blacklist.userId = :userId
+        | and blacklist.accountId = :accountId and blacklist.doctorId = :doctorId""".stripMargin,
+      classOf[DoctorBlacklist]
+    ).setParameter("userId", userId)
+      .setParameter("accountId", accountId)
+      .setParameter("doctorId", doctorId)
+      .getResultList
+      .asScala
+      .headOption
+  }
+
+  def deleteBlacklistEntry(blacklistEntry: DoctorBlacklist): Unit = {
+    em.remove(em.contains(blacklistEntry) match {
+      case true => blacklistEntry
+      case false => em.merge(blacklistEntry)
+    })
   }
 }
