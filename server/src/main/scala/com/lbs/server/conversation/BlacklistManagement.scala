@@ -6,12 +6,13 @@ import com.lbs.bot._
 import com.lbs.bot.model.{Button, Command}
 import com.lbs.server.conversation.BlacklistManagement._
 import com.lbs.server.conversation.Login.UserId
-import com.lbs.server.conversation.StaticData.StaticDataConfig
+import com.lbs.server.conversation.StaticData.{FindOptions, FoundOptions, LatestOptions, StaticDataConfig}
 import com.lbs.server.conversation.base.Conversation
 import com.lbs.server.lang.{Localizable, Localization}
 import com.lbs.server.repository.model.DoctorBlacklist
 import com.lbs.server.service.{ApiService, DataService}
-import com.lbs.server.util.MessageExtractors.{CallbackCommand, IntString, TextCommand}
+import com.lbs.server.ThrowableOr
+import com.lbs.server.util.MessageExtractors.TextCommand
 import com.lbs.server.util.ServerModelConverters._
 
 class BlacklistManagement(
@@ -23,7 +24,6 @@ class BlacklistManagement(
   staticDataFactory: UserIdWithOriginatorTo[StaticData]
 )(implicit val actorSystem: ActorSystem)
     extends Conversation[BlacklistData]
-    with StaticDataForBooking
     with Localizable {
 
   private[conversation] val staticData = staticDataFactory(userId, self)
@@ -60,7 +60,7 @@ class BlacklistManagement(
     } onReply {
       case Msg(Command(_, _, Some(Tags.AddDoctor)), _) =>
         goto(askCityForAdd)
-      case Msg(TextCommand(s"/remove_$IntString(index)"), _) =>
+      case Msg(TextCommand(removePattern(index)), _) =>
         val blacklistedDoctors = dataService.getBlacklistedDoctors(userId.userId, userId.accountId)
         if (index >= 0 && index < blacklistedDoctors.size) {
           val doctor = blacklistedDoctors(index)
@@ -73,42 +73,83 @@ class BlacklistManagement(
     }
 
   def askCityForAdd: Step =
-    staticData(cityConfig) { bd: BlacklistData =>
-      withFunctions[DictionaryCity](
-        latestOptions = dataService.getLatestCities(userId.accountId),
-        staticOptions = apiService.getAllCities(userId.accountId),
-        applyId = id => bd.copy(cityId = Some(id.toIdName))
-      )
-    }(requestNext = askServiceForAdd)
+    ask { _ =>
+      staticData.restart()
+      staticData ! cityConfig
+    } onReply {
+      case Msg(cmd: Command, _) =>
+        staticData ! cmd
+        stay()
+      case Msg(LatestOptions, _) =>
+        staticData ! LatestOptions(dataService.getLatestCities(userId.accountId))
+        stay()
+      case Msg(FindOptions(searchText), _) =>
+        staticData ! FoundOptions(filterOptions(apiService.getAllCities(userId.accountId), searchText))
+        stay()
+      case Msg(id: IdName, bd: BlacklistData) =>
+        goto(askServiceForAdd) using bd.copy(cityId = Some(id))
+    }
 
   def askServiceForAdd: Step =
-    staticData(serviceConfig) { bd: BlacklistData =>
-      withFunctions[DictionaryServiceVariants](
-        latestOptions = dataService.getLatestServicesByCityIdAndClinicId(userId.accountId, bd.cityId.get.id, None),
-        staticOptions = apiService.getAllServices(userId.accountId),
-        applyId = id => bd.copy(serviceId = Some(id.toIdName))
-      )
-    }(requestNext = askClinicForAdd)
+    ask { _ =>
+      staticData.restart()
+      staticData ! serviceConfig
+    } onReply {
+      case Msg(cmd: Command, _) =>
+        staticData ! cmd
+        stay()
+      case Msg(LatestOptions, bd: BlacklistData) =>
+        staticData ! LatestOptions(
+          dataService.getLatestServicesByCityIdAndClinicId(userId.accountId, bd.cityId.get.id, None)
+        )
+        stay()
+      case Msg(FindOptions(searchText), _) =>
+        staticData ! FoundOptions(filterOptions(apiService.getAllServices(userId.accountId), searchText))
+        stay()
+      case Msg(id: IdName, bd: BlacklistData) =>
+        goto(askClinicForAdd) using bd.copy(serviceId = Some(id))
+    }
 
   def askClinicForAdd: Step =
-    staticData(clinicConfig) { bd: BlacklistData =>
-      withFunctions[IdName](
-        latestOptions = dataService.getLatestClinicsByCityId(userId.accountId, bd.cityId.get.id),
-        staticOptions = apiService.getAllFacilities(userId.accountId, bd.cityId.get.id, bd.serviceId.get.id),
-        applyId = id => bd.copy(clinicId = Some(id))
-      )
-    }(requestNext = askDoctorForAdd)
+    ask { _ =>
+      staticData.restart()
+      staticData ! clinicConfig
+    } onReply {
+      case Msg(cmd: Command, _) =>
+        staticData ! cmd
+        stay()
+      case Msg(LatestOptions, bd: BlacklistData) =>
+        staticData ! LatestOptions(dataService.getLatestClinicsByCityId(userId.accountId, bd.cityId.get.id))
+        stay()
+      case Msg(FindOptions(searchText), bd: BlacklistData) =>
+        staticData ! FoundOptions(
+          filterOptions(apiService.getAllFacilities(userId.accountId, bd.cityId.get.id, bd.serviceId.get.id), searchText)
+        )
+        stay()
+      case Msg(id: IdName, bd: BlacklistData) =>
+        goto(askDoctorForAdd) using bd.copy(clinicId = Some(id))
+    }
 
   def askDoctorForAdd: Step =
-    staticData(doctorConfig) { bd: BlacklistData =>
-      withFunctions[IdName](
-        latestOptions = dataService.getLatestDoctorsByCityIdAndClinicIdAndServiceId(
-          userId.accountId,
-          bd.cityId.get.id,
-          bd.clinicId.get.optionalId,
-          bd.serviceId.get.id
-        ),
-        staticOptions = apiService
+    ask { _ =>
+      staticData.restart()
+      staticData ! doctorConfig
+    } onReply {
+      case Msg(cmd: Command, _) =>
+        staticData ! cmd
+        stay()
+      case Msg(LatestOptions, bd: BlacklistData) =>
+        staticData ! LatestOptions(
+          dataService.getLatestDoctorsByCityIdAndClinicIdAndServiceId(
+            userId.accountId,
+            bd.cityId.get.id,
+            bd.clinicId.get.optionalId,
+            bd.serviceId.get.id
+          )
+        )
+        stay()
+      case Msg(FindOptions(searchText), bd: BlacklistData) =>
+        val doctors = apiService
           .getAllDoctors(userId.accountId, bd.cityId.get.id, bd.serviceId.get.id)
           .map(
             _.filter(doc => {
@@ -116,10 +157,12 @@ class BlacklistManagement(
               clinicId.isEmpty || doc.facilityGroupIds.exists(_.contains(clinicId.get))
             })
             .map(_.toIdName)
-          ),
-        applyId = id => bd.copy(doctorId = Some(id.toIdName))
-      )
-    }(requestNext = confirmAddDoctor)
+          )
+        staticData ! FoundOptions(filterOptions(doctors, searchText))
+        stay()
+      case Msg(id: IdName, bd: BlacklistData) =>
+        goto(confirmAddDoctor) using bd.copy(doctorId = Some(id))
+    }
 
   def confirmAddDoctor: Step =
     ask { bd =>
@@ -137,6 +180,20 @@ class BlacklistManagement(
     } onReply {
       case _ => stay() // This step auto-transitions, but we need onReply
     }
+
+  private def cityConfig = StaticDataConfig(lang.city, "wro", "Wrocław", isAnyAllowed = false)
+  private def clinicConfig = StaticDataConfig(lang.clinic, "swob", "Swobodna 1", isAnyAllowed = true)
+  private def serviceConfig = StaticDataConfig(lang.service, "stomat", "Stomatolog", isAnyAllowed = false)
+  private def doctorConfig = StaticDataConfig(lang.doctor, "Kowal", "Kowalski", isAnyAllowed = false)
+
+  private def filterOptions[T <: com.lbs.api.json.model.Identified](
+    options: ThrowableOr[List[T]],
+    searchText: String
+  ) = {
+    options.map(opt => opt.filter(c => c.name.toLowerCase.contains(searchText)))
+  }
+
+  private val removePattern = "/remove_(\\d+)".r
 }
 
 object BlacklistManagement {
