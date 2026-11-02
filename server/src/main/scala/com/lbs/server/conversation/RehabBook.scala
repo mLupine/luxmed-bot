@@ -251,21 +251,23 @@ class RehabBook(
 
   private def requestTerm: Step =
     ask { data =>
-      val availableTerms = apiService.getAvailableRehabTerms(
-        userId.accountId,
-        data.cityId.id,
-        data.cityId.name,
-        data.serviceVariantId,
-        data.sourceVisitId,
-        data.referralId,
-        data.referralTypeId,
-        data.dateFrom,
-        data.dateTo,
-        data.timeFrom,
-        data.timeTo,
-        Option(data.facilityId).flatMap(f => f.optionalId),
-        Option(data.physiotherapistId).flatMap(d => d.optionalId)
-      )
+      val availableTerms = apiService
+        .getAvailableRehabTerms(
+          userId.accountId,
+          data.cityId.id,
+          data.cityId.name,
+          data.serviceVariantId,
+          data.sourceVisitId,
+          data.referralId,
+          data.referralTypeId,
+          data.dateFrom,
+          data.dateTo,
+          data.timeFrom,
+          data.timeTo,
+          Option(data.facilityId).flatMap(f => f.optionalId),
+          Option(data.physiotherapistId).flatMap(d => d.optionalId)
+        )
+        .map(terms => dataService.withoutBlacklistedDoctors(userId.userId, userId.accountId, terms))
       termsPager.restart()
       termsPager ! availableTerms.map(new SimpleItemsProvider(_))
     } onReply {

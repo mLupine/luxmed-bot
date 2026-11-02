@@ -101,9 +101,7 @@ class MonitoringService extends StrictLogging {
       }
     termsEither match {
       case Right(terms) =>
-        // Filter out blacklisted doctors from automated monitoring results
-        val blacklistedDoctorIds = dataService.getBlacklistedDoctorIds(monitoring.userId, monitoring.accountId)
-        val filteredTerms = terms.filterNot(term => blacklistedDoctorIds.contains(term.term.doctor.id))
+        val filteredTerms = dataService.withoutBlacklistedDoctors(monitoring.userId, monitoring.accountId, terms)
 
         if (filteredTerms.nonEmpty) {
           logger.debug(s"Found ${filteredTerms.length} terms (after blacklist filtering) by monitoring [#${monitoring.recordId}]")
@@ -304,7 +302,9 @@ class MonitoringService extends StrictLogging {
         )
         termsEither match {
           case Right(terms) =>
-            val termMaybe = terms.find(term =>
+            val visibleTerms =
+              dataService.withoutBlacklistedDoctors(monitoring.userId, monitoring.accountId, terms)
+            val termMaybe = visibleTerms.find(term =>
               term.term.scheduleId == scheduleId && minutesSinceBeginOf2018(term.term.dateTimeFrom.get) == time
             )
             termMaybe match {

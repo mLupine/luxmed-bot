@@ -1,6 +1,6 @@
 package com.lbs.server.service
 
-import com.lbs.api.json.model.IdName
+import com.lbs.api.json.model.{IdName, TermExt}
 import com.lbs.bot.model.MessageSource
 import com.lbs.server.conversation.Book.BookingData
 import com.lbs.server.repository.model.*
@@ -192,6 +192,11 @@ class DataService {
 
   def getBlacklistedDoctorIds(userId: Long, accountId: Long): Set[Long] = {
     dataRepository.getBlacklistedDoctorIds(userId, accountId)
+  }
+
+  def withoutBlacklistedDoctors(userId: Long, accountId: Long, terms: List[TermExt]): List[TermExt] = {
+    val blacklistedDoctorIds = getBlacklistedDoctorIds(userId, accountId)
+    terms.filterNot(term => blacklistedDoctorIds.contains(term.term.doctor.id))
   }
 
   def isDoctorBlacklisted(userId: Long, accountId: Long, doctorId: Long): Boolean = {

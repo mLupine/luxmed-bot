@@ -93,6 +93,16 @@ class DataRepositorySpec {
   }
 
   @Test
+  def whenDoctorIsBlacklisted_thenStoredIdIsReturned(): Unit = {
+    em.persist(DoctorBlacklist(1L, 2L, 11111L, "TARAS BLOCKED"))
+    em.flush()
+
+    val ids = dataRepository.getBlacklistedDoctorIds(1L, 2L)
+    assertThat(ids).isEqualTo(Set(11111L))
+    assertThat(dataRepository.getBlacklistedDoctorIds(1L, 9L)).isEqualTo(Set.empty[Long])
+  }
+
+  @Test
   def whenFindCredentials_thenReturnOneRecord(): Unit = {
     val credentials = Credentials(1L, 1L, "user1", "pwd1")
     em.persist(credentials)

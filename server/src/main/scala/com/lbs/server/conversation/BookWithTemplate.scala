@@ -126,17 +126,19 @@ class BookWithTemplate(
 
   private def requestTerm: Step =
     ask { bookingData =>
-      val availableTerms = apiService.getAvailableTerms(
-        userId.accountId,
-        bookingData.cityId.id,
-        bookingData.clinicId.optionalId,
-        bookingData.serviceId.id,
-        bookingData.doctorId.optionalId,
-        bookingData.dateFrom,
-        bookingData.dateTo,
-        timeFrom = bookingData.timeFrom,
-        timeTo = bookingData.timeTo
-      )
+      val availableTerms = apiService
+        .getAvailableTerms(
+          userId.accountId,
+          bookingData.cityId.id,
+          bookingData.clinicId.optionalId,
+          bookingData.serviceId.id,
+          bookingData.doctorId.optionalId,
+          bookingData.dateFrom,
+          bookingData.dateTo,
+          timeFrom = bookingData.timeFrom,
+          timeTo = bookingData.timeTo
+        )
+        .map(terms => dataService.withoutBlacklistedDoctors(userId.userId, userId.accountId, terms))
       termsPager.restart()
       termsPager ! availableTerms.map(new SimpleItemsProvider(_))
     } onReply {

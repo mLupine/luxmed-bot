@@ -5,7 +5,7 @@ import com.lbs.bot.Bot
 import com.lbs.bot.model.{Command, Message, MessageSource, TelegramMessageSourceSystem}
 import com.lbs.server.conversation.Book.Tags
 import com.lbs.server.conversation.Login.UserId
-import com.lbs.server.conversation.Pager.NoItemsFound
+import com.lbs.server.conversation.Pager.{NoItemsFound, SimpleItemsProvider}
 import com.lbs.server.conversation.base.ConversationTestProbe
 import com.lbs.server.lang.{En, Localization}
 import com.lbs.server.repository.model.Settings
@@ -73,12 +73,26 @@ class BookSpec extends AkkaTestKit {
     book ! LocalTime.of(20, 0)
   }
 
-  private def sampleTerm: TermExt = {
-    val dt     = LuxmedFunnyDateTime(dateTimeLocal = Some(LocalDateTime.of(2026, 6, 1, 10, 0)))
-    val doctor = Doctor(Some("dr"), Some(List(10L)), Some("John"), Some(false), Some(1L), 50L, Some("Smith"))
-    val term   = Term(Some("Clinic A"), 10L, 5L, dt, dt, doctor, Some(""),
-                      isAdditional = false, isImpediment = false, isTelemedicine = false,
-                      1L, 1000L, 100L)
+  private def sampleTerm: TermExt = termFor(50L, "John", "Smith", 1000L)
+
+  private def termFor(doctorId: Long, firstName: String, lastName: String, scheduleId: Long): TermExt = {
+    val dt = LuxmedFunnyDateTime(dateTimeLocal = Some(LocalDateTime.of(2026, 6, 1, 10, 0)))
+    val doctor = Doctor(Some("dr"), Some(List(10L)), Some(firstName), Some(false), Some(1L), doctorId, Some(lastName))
+    val term = Term(
+      Some("Clinic A"),
+      10L,
+      5L,
+      dt,
+      dt,
+      doctor,
+      Some(""),
+      isAdditional = false,
+      isImpediment = false,
+      isTelemedicine = false,
+      1L,
+      scheduleId,
+      100L
+    )
     TermExt(AdditionalData(isPreparationRequired = false, preparationItems = Nil), term)
   }
 
@@ -337,6 +351,37 @@ class BookSpec extends AkkaTestKit {
         book ! callbackCmd(Tags.No)           // skip offset
         book ! callbackCmd(Tags.BookManually) // manual booking
         awaitAssert(verify(monitoringService).createMonitoring(any()))
+      }
+    }
+
+    "searching for visits" must {
+      "hide a blacklisted doctor returned by the API when the manual-search setting is off" in {
+        val dp = ConversationTestProbe[DatePicker]()
+        val tp = ConversationTestProbe[TimePicker]()
+        val sp = ConversationTestProbe[StaticData]()
+        val pp = ConversationTestProbe[Pager[TermExt]]()
+        val apiService = makeApiService
+        val dataService = new DataService {
+          override def getBlacklistedDoctorIds(userId: Long, accountId: Long): Set[Long] =
+            if (userId == 1L && accountId == 1L) Set(50L) else Set.empty
+          override def findSettings(userId: Long): Option[Settings] = None
+          override def storeAppointment(accountId: Long, bookingData: Book.BookingData): Unit = ()
+        }
+        val blocked = termFor(50L, "TARAS", "BLOCKED", 500L)
+        val allowed = termFor(77L, "ANNA", "ALLOWED", 770L)
+        stubGetTerms(apiService, Right(List(blocked, allowed)))
+        val book = makeBook(apiService = apiService, dataService = dataService)(dp, tp, sp, pp)
+        book.start()
+        selectStaticData(book)
+        selectDates(book)
+        book ! callbackCmd(Tags.FindTerms)
+
+        val shown = pp.expectMsgPF() { case Right(provider: SimpleItemsProvider[?]) =>
+          provider.items.collect { case term: TermExt =>
+            (term.term.doctor.id, term.term.doctor.name)
+          }
+        }
+        assert(shown == Seq((77L, "ANNA ALLOWED")))
       }
     }
   }
